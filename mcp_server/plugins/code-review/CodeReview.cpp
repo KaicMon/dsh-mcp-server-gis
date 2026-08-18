@@ -78,6 +78,10 @@ char* HandleRequestImpl(const char* req) {
 void ShutdownImpl() {
 }
 
+void FreeResultImpl(char* result) {
+    delete[] result;
+}
+
 int GetPromptCountImpl() {
     return sizeof(prompts) / sizeof(prompts[0]);
 }
@@ -88,6 +92,8 @@ const PluginPrompt* GetPromptImpl(int index) {
 }
 
 static PluginAPI plugin = {
+        MCP_PLUGIN_ABI_VERSION,
+        sizeof(PluginAPI),
         GetNameImpl,
         GetVersionImpl,
         GetTypeImpl,
@@ -99,6 +105,8 @@ static PluginAPI plugin = {
         GetPromptCountImpl,
         GetPromptImpl,
         nullptr,
+        nullptr,
+        FreeResultImpl,
         nullptr
 };
 

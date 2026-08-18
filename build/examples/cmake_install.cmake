@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp/examples
+# Install script for directory: /home/humr/agan-projects/mcp/examples
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -1,0 +1,42 @@
+datasets:
+  - id: micro-fixtures
+    type: osm-xml
+    path: test
+    source: project-authored synthetic fixtures
+    purpose: topology and routing correctness tests
+    license: project license
+    status: ready
+
+  - id: jiangsu-source
+    type: osm-pbf
+    path: raw/jiangsu-latest.osm.pbf
+    source_url: https://download.geofabrik.de/asia/china/jiangsu-latest.osm.pbf
+    downloaded_at: 2026-08-15
+    source_timestamp: 2026-08-14T20:21:03Z
+    size_bytes: 78986287
+    sha256: 23e508c9d493b097af7d4877940a9fbac70032faba9359ac9ca1d163b33b9256
+    bounding_box: Jiangsu Province extract
+    license: ODbL-1.0
+    purpose: source extract for Nanjing city dataset
+    status: ready
+
+  - id: nanjing-city
+    type: osm-pbf
+    path: raw/nanjing-city.osm.pbf
+    derived_from: jiangsu-source
+    osm_boundary_relation: 2131524
+    boundary_wikidata: Q16666
+    extraction_strategy: administrative MultiPolygon with osmium complete_ways
+    generated_at: 2026-08-15
+    size_bytes: 11007979
+    sha256: 670f11960a7a70a0db0048520e05083a652eed7ae9ab45604ef5a22c2902ff63
+    bounding_box: [118.3345905, 31.2267477, 119.2395068, 32.615778]
+    object_counts:
+      nodes: 1601371
+      ways: 166861
+      relations: 2089
+    validation:
+      missing_nodes_in_ways: 0
+    license: ODbL-1.0
+    purpose: city-scale graph build and routing benchmark
+    status: ready

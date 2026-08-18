@@ -1,5 +1,7 @@
 # MCP 插件开发指南
 
+> 插件安全热更新的架构、ABI 演进和分阶段实施计划见 [plugin-hot-reload-design.md](plugin-hot-reload-design.md)。该能力目前处于设计阶段，尚未实现。
+
 ## 概述
 
 MCP (Model Context Protocol) 插件是扩展 AI Agent 能力的主要方式。本指南介绍如何开发自定义 MCP 插件。
@@ -56,6 +58,7 @@ public:
     static PluginType GetType();
     static int Initialize();
     static char* HandleRequest(const char* request);
+    static void FreeResult(char* result);
     static void Shutdown();
     
     // 工具相关
@@ -142,6 +145,10 @@ char* MyPlugin::HandleRequest(const char* request) {
     return strdup(R"({"error": "Unknown method"})");
 }
 
+void MyPlugin::FreeResult(char* result) {
+    std::free(result); // 与上面的 strdup 分配方式配对
+}
+
 void MyPlugin::Shutdown() {
     g_tools.clear();
 }
@@ -168,7 +175,9 @@ const PluginResource* MyPlugin::GetResource(int index) {
 // 导出函数
 extern "C" {
     PLUGIN_API PluginAPI* CreatePlugin() {
-        static PluginAPI api;
+        static PluginAPI api{};
+        api.abiVersion = MCP_PLUGIN_ABI_VERSION;
+        api.structSize = sizeof(PluginAPI);
         api.GetName = MyPlugin::GetName;
         api.GetVersion = MyPlugin::GetVersion;
         api.GetType = MyPlugin::GetType;
@@ -179,6 +188,8 @@ extern "C" {
         api.GetTool = MyPlugin::GetTool;
         api.GetResourceCount = MyPlugin::GetResourceCount;
         api.GetResource = MyPlugin::GetResource;
+        api.FreeResult = MyPlugin::FreeResult;
+        // api.host 由 Server 在 Initialize 之前注入，插件不得释放。
         return &api;
     }
     
@@ -241,6 +252,9 @@ cp libmy_plugin.so ../../build/plugins/
 
 ```cpp
 struct PluginAPI {
+    uint32_t abiVersion;       // 必须为 MCP_PLUGIN_ABI_VERSION
+    uint32_t structSize;       // 必须为 sizeof(PluginAPI)
+
     // 基本信息
     const char* (*GetName)();
     const char* (*GetVersion)();
@@ -252,6 +266,7 @@ struct PluginAPI {
     
     // 请求处理
     char* (*HandleRequest)(const char* request);
+    void (*FreeResult)(char* result); // 必须由插件释放自己的结果
     
     // 工具相关
     int (*GetToolCount)();
@@ -260,8 +275,12 @@ struct PluginAPI {
     // 资源相关
     int (*GetResourceCount)();
     const PluginResource* (*GetResource)(int index);
+
+    PluginHostAPI* host;       // Server 注入，插件不得持有到 Shutdown 之后
 };
 ```
+
+`HandleRequest` 返回的缓冲区必须由同一个动态库提供的 `FreeResult` 释放。Server 不会再对插件内存直接执行 `delete[]` 或 `free()`，从而避免跨 C/C++ Runtime 释放。
 
 ### PluginTool 结构
 
@@ -604,7 +623,7 @@ int main() {
     
     char* response = MyPlugin::HandleRequest(request);
     std::cout << response << std::endl;
-    free(response);
+    MyPlugin::FreeResult(response);
     
     MyPlugin::Shutdown();
     return 0;
@@ -619,6 +638,14 @@ int main() {
 - [ ] 输入参数有 JSON Schema
 - [ ] 错误处理完善
 - [ ] 内存无泄漏
+- [ ] 设置 ABI 版本、结构大小和 `FreeResult`
+- [ ] `Shutdown()` 返回前停止并 join 所有插件后台线程
 - [ ] 线程安全
 - [ ] 文档完整
 - [ ] 测试通过
+
+## 热更新部署
+
+启用热更新的插件必须使用 ABI v2，并确保 `Shutdown()` 返回前已经停止和 join 所有后台线程。部署时推荐“写临时文件后原子 rename”，不要让 Server 读取尚未写完的动态库。
+
+完整的启动参数、部署步骤、回退方式和验证命令见[插件热更新运行手册](plugin-hot-reload-operations.md)，实现原理与并发不变量见[插件热更新设计](plugin-hot-reload-design.md)。

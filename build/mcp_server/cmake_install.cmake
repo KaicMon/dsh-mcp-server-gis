@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp/mcp_server
+# Install script for directory: /home/humr/agan-projects/mcp/mcp_server
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,31 +44,31 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/plugins/weather/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/plugins/weather/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/plugins/sleep/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/plugins/sleep/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/plugins/code-review/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/plugins/code-review/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/plugins/bacio-quote/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/plugins/bacio-quote/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/plugins/notification/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/plugins/notification/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/plugins/calculator/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/plugins/calculator/cmake_install.cmake")
 endif()
 

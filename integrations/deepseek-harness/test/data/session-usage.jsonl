@@ -1,0 +1,4 @@
+{"type":"session","version":0,"id":"usage-fixture","createdAt":1,"cwd":"/tmp"}
+{"type":"assistant/chunk","seq":1,"data":{"turn":1,"step":1,"chunk":{"type":"usage","usage":{"inputTokens":3,"outputTokens":2}}}}
+{"type":"step/end","seq":2,"data":{"turn":1,"step":1,"usage":{"inputTokens":4,"outputTokens":3}}}
+{"type":"assistant/chunk","seq":3,"data":{"turn":1,"step":2,"chunk":{"type":"usage","usage":{"inputTokens":1,"outputTokens":1}}}}

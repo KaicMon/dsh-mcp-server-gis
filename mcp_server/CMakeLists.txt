@@ -17,6 +17,7 @@ configure_file(
 )
 
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 set(SOURCES
     src/main.cpp
@@ -25,6 +26,10 @@ set(SOURCES
     src/transport/HttpStreamTransport.cpp
     src/transport/SseTransport.cpp
     src/loader/PluginsLoader.cpp
+    src/loader/PluginRegistry.cpp
+    src/runtime/PluginRuntime.cpp
+    src/runtime/PluginWatcher.cpp
+    src/tools/ToolProfile.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -33,11 +38,14 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     src
     src/transport
     src/interface
+    src/loader
+    src/runtime
+    src/tools
     libs_tier_01/aixlog-1.5.0/include
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads OpenSSL::Crypto)
 
 # 平台相关链接
 if(WIN32)
@@ -61,3 +69,7 @@ add_subdirectory(plugins/code-review)
 add_subdirectory(plugins/bacio-quote)
 add_subdirectory(plugins/notification)
 add_subdirectory(plugins/calculator)
+
+if(BUILD_TESTING)
+    add_subdirectory(test)
+endif()

@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp/mcp_server/plugins/sleep
+# Install script for directory: /home/humr/agan-projects/mcp/mcp_server/plugins/sleep
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="mcp-routing-fixture">
+  <bounds minlat="40.0290" minlon="116.0290" maxlat="40.0310" maxlon="116.0320"/>
+  <node id="31" lat="40.0300" lon="116.0290"/>
+  <node id="32" lat="40.0300" lon="116.0300"/>
+  <node id="33" lat="40.0300" lon="116.0310"/>
+  <node id="34" lat="40.0310" lon="116.0300"/>
+  <node id="35" lat="40.0290" lon="116.0300"/>
+  <way id="131">
+    <nd ref="31"/><nd ref="32"/>
+    <tag k="highway" v="secondary"/>
+  </way>
+  <way id="132">
+    <nd ref="32"/><nd ref="33"/>
+    <tag k="highway" v="secondary"/>
+  </way>
+  <way id="133">
+    <nd ref="35"/><nd ref="32"/><nd ref="34"/>
+    <tag k="highway" v="residential"/>
+  </way>
+  <relation id="1001">
+    <member type="way" ref="131" role="from"/>
+    <member type="node" ref="32" role="via"/>
+    <member type="way" ref="133" role="to"/>
+    <tag k="type" v="restriction"/>
+    <tag k="restriction" v="no_left_turn"/>
+  </relation>
+</osm>

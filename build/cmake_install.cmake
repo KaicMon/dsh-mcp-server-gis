@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp
+# Install script for directory: /home/humr/agan-projects/mcp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -44,22 +44,22 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/common/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/common/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_client/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_client/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/mcp_server/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/mcp_server/cmake_install.cmake")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/home/ubuntu/ai/mcp/build/examples/cmake_install.cmake")
+  include("/home/humr/agan-projects/mcp/build/examples/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT)
@@ -70,5 +70,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/ubuntu/ai/mcp/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/humr/agan-projects/mcp/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp/mcp_client
+# Install script for directory: /home/humr/agan-projects/mcp/mcp_client
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -42,11 +42,11 @@ if(NOT DEFINED CMAKE_OBJDUMP)
   set(CMAKE_OBJDUMP "/usr/bin/objdump")
 endif()
 
-if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/ubuntu/ai/mcp/build/mcp_client/libmcp_client.a")
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE STATIC_LIBRARY FILES "/home/humr/agan-projects/mcp/build/mcp_client/libmcp_client.a")
 endif()
 
-if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/agent_rpc/mcp" TYPE DIRECTORY FILES "/home/ubuntu/ai/mcp/mcp_client/include/agent_rpc/mcp/" FILES_MATCHING REGEX "/[^/]*\\.h$")
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/include/agent_rpc/mcp" TYPE DIRECTORY FILES "/home/humr/agan-projects/mcp/mcp_client/include/agent_rpc/mcp/" FILES_MATCHING REGEX "/[^/]*\\.h$")
 endif()
 

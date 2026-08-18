@@ -260,6 +260,7 @@ char* HandleRequestImpl(const char* req) {
 }
 
 void ShutdownImpl() {}
+void FreeResultImpl(char* result) { delete[] result; }
 int GetToolCountImpl() { return sizeof(methods) / sizeof(methods[0]); }
 const PluginTool* GetToolImpl(int index) {
     if (index < 0 || index >= GetToolCountImpl()) return nullptr;
@@ -267,9 +268,10 @@ const PluginTool* GetToolImpl(int index) {
 }
 
 static PluginAPI plugin = {
+    MCP_PLUGIN_ABI_VERSION, sizeof(PluginAPI),
     GetNameImpl, GetVersionImpl, GetTypeImpl, InitializeImpl,
     HandleRequestImpl, ShutdownImpl, GetToolCountImpl, GetToolImpl,
-    nullptr, nullptr, nullptr, nullptr
+    nullptr, nullptr, nullptr, nullptr, FreeResultImpl, nullptr
 };
 
 extern "C" PLUGIN_API PluginAPI* CreatePlugin() { return &plugin; }

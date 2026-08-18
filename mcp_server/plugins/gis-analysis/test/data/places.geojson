@@ -1,0 +1,10 @@
+{
+  "type": "FeatureCollection",
+  "name": "places",
+  "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+  "features": [
+    {"type": "Feature", "properties": {"name": "Nanjing A", "rank": 1}, "geometry": {"type": "Point", "coordinates": [118.7969, 32.0603]}},
+    {"type": "Feature", "properties": {"name": "Nanjing B", "rank": 2}, "geometry": {"type": "Point", "coordinates": [118.8050, 32.0650]}},
+    {"type": "Feature", "properties": {"name": "Outside", "rank": 3}, "geometry": {"type": "Point", "coordinates": [119.2000, 32.5000]}}
+  ]
+}

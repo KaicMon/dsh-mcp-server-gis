@@ -1,0 +1,12 @@
+/build_dev/
+/build/
+/build-local/
+
+
+# OSM source extracts and generated routing artifacts are reproducible but large.
+/routing/data/raw/*
+!/routing/data/raw/README.md
+/routing/data/generated/*
+!/routing/data/generated/README.md
+/routing/benchmark/results/*
+!/routing/benchmark/results/README.md

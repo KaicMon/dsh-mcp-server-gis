@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp/mcp_server/plugins/bacio-quote
+# Install script for directory: /home/humr/agan-projects/mcp/mcp_server/plugins/bacio-quote
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

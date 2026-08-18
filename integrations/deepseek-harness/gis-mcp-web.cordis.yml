@@ -1,0 +1,67 @@
+# Web variant of gis-mcp.cordis.yml. The only intentional difference is that
+# the renderer uses a package specifier, allowing Harness client-module
+# discovery to resolve package.json and serve the browser bundle.
+- insert:
+    - id: gis-native-renderer
+      name: '@local/gis-mcp-harness-renderer'
+    - id: mcp-gis-lbs
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: gis
+        transport: stdio
+        command: !!js process.env.MCP_SERVER_BINARY
+        args:
+          - --plugins
+          - !!js process.env.MCP_PLUGIN_DIR
+          - --logs
+          - !!js process.env.MCP_LOG_DIR
+          - --plugin-staging
+          - !!js process.env.MCP_PLUGIN_STAGING_DIR
+          - --plugin-hot-reload
+          - --tool-profile
+          - !!js process.env.MCP_TOOL_PROFILE || 'gis-agent'
+          - --tool-profiles-file
+          - !!js process.env.MCP_TOOL_PROFILES_FILE
+        cwd: !!js process.env.MCP_PROJECT_ROOT
+        env:
+          AMAP_API_KEY: !!js process.env.AMAP_API_KEY
+          MCP_ROUTING_NETWORK: !!js process.env.MCP_ROUTING_NETWORK
+          MCP_ROUTING_NETWORK_VERSION: !!js process.env.MCP_ROUTING_NETWORK_VERSION
+          GIS_RESULT_SERVICE_URL: !!js process.env.GIS_RESULT_SERVICE_URL
+          GIS_PUBLISH_INLINE_RESULTS: '1'
+          GIS_MAX_INLINE_BYTES: !!js process.env.GIS_MAX_INLINE_BYTES || '32768'
+          GIS_DATASET_ROOT: !!js process.env.GIS_DATASET_ROOT || ''
+          GIS_CACHE_BACKEND: !!js process.env.GIS_CACHE_BACKEND
+          GIS_REDIS_HOST: !!js process.env.GIS_REDIS_HOST
+          GIS_REDIS_PORT: !!js process.env.GIS_REDIS_PORT
+        toolCallTimeoutMs: 60000
+        failOnStartupError: true
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10
+
+- id: llm-deepseek
+  config:
+    apiKeyEnv: DSH_GIS_API_KEY
+    baseURL: !!js process.env.DSH_GIS_LLM_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+    thinking: disabled
+    reasoningEffort: off
+    maxTokens: 4096
+    models:
+      - id: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
+        name: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
+
+- id: agent-default-model
+  config:
+    provider: deepseek-official
+    model: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
+
+- id: session-persistence-jsonl
+  config:
+    root: !!js dshHomePath('sessions-gis-jsonl')
+    compression: !!js process.env.DSH_GIS_SESSION_COMPRESSION || 'none'
+
+- id: typert-loader
+  disabled: true

@@ -25,17 +25,24 @@
 #ifndef MCP_SERVER_PLUGINAPI_H
 #define MCP_SERVER_PLUGINAPI_H
 
+#include <stdint.h>
+
 #ifdef _WIN32
 #define PLUGIN_API __declspec(dllexport)
 #else
-#define PLUGIN_API __attribute__((visibility("default")))
+#define PLUGIN_API __attribute__((visibility("default"))) // 确保函数出现在dll的到处符号表
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef void (*ClientNotificationCallback)(const char* pluginName, const char* notification);
+#define MCP_PLUGIN_ABI_VERSION 2u
+
+typedef void (*ClientNotificationCallback)(
+    void* hostContext,
+    const char* pluginName,
+    const char* notification);
 
 typedef enum {
     PLUGIN_TYPE_TOOLS = 0,
@@ -63,10 +70,15 @@ typedef struct {
 } PluginResource;
 
 typedef struct {
-    ClientNotificationCallback SendToClient;    // you should not touch this
-} NotificationSystem;
+    uint32_t abiVersion;
+    uint32_t structSize;
+    void* hostContext;
+    ClientNotificationCallback SendToClient;
+} PluginHostAPI;
 
 typedef struct {
+    uint32_t abiVersion;
+    uint32_t structSize;
     const char* (*GetName)();
     const char* (*GetVersion)();
     PluginType (*GetType)();
@@ -79,7 +91,8 @@ typedef struct {
     const PluginPrompt* (*GetPrompt)(int index);
     int (*GetResourceCount)();
     const PluginResource* (*GetResource)(int index);
-    NotificationSystem* notifications;
+    void (*FreeResult)(char* result);
+    PluginHostAPI* host;
 } PluginAPI;
 
 PLUGIN_API PluginAPI* CreatePlugin();

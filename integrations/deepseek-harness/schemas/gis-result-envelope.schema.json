@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.gis-mcp/schemas/gis-result-envelope-1.0.json",
+  "title": "GIS MCP result envelope",
+  "type": "object",
+  "required": ["schemaVersion", "tool", "traceId", "summary", "data", "visualization", "meta"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "tool": { "type": "string", "minLength": 1 },
+    "traceId": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string" },
+    "data": { "type": "object" },
+    "visualization": {
+      "type": "object",
+      "required": ["kind", "inline", "geojson", "resultId", "mapUrl"],
+      "properties": {
+        "kind": { "type": ["string", "null"] },
+        "inline": { "type": "boolean" },
+        "geojson": { "type": ["object", "null"] },
+        "resultId": { "type": ["string", "null"] },
+        "mapUrl": { "type": ["string", "null"], "format": "uri" }
+      },
+      "additionalProperties": true
+    },
+    "meta": { "type": "object" },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "retryable", "details"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" },
+        "details": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

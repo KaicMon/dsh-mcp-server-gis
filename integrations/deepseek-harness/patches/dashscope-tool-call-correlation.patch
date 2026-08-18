@@ -1,0 +1,20 @@
+diff --git a/packages/llm/llm-deepseek/src/translate.ts b/packages/llm/llm-deepseek/src/translate.ts
+--- a/packages/llm/llm-deepseek/src/translate.ts
++++ b/packages/llm/llm-deepseek/src/translate.ts
+@@ -158,8 +158,14 @@ export async function* translate(payloads: AsyncIterable<string>): AsyncGenerato
+           toolBlocks.set(call.index, block)
+           yield { type: 'block-start', index: block.index, blockType: 'tool-call' }
+         }
+-        if (call.id !== undefined) block.callId = call.id
+-        if (call.function?.name !== undefined) block.name = call.function.name
++        // Some OpenAI-compatible providers (including DashScope/Qwen) emit
++        // the real id/name only in the first fragment and send empty strings
++        // in later fragments. Empty continuation fields mean "unchanged";
++        // overwriting here breaks tool/result correlation and settled UI rows.
++        if (call.id !== undefined && call.id !== '') block.callId = call.id
++        if (call.function?.name !== undefined && call.function.name !== '') {
++          block.name = call.function.name
++        }
+         const fragment = call.function?.arguments ?? ''
+         block.text += fragment
+         yield {

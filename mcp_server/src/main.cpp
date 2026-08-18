@@ -29,9 +29,13 @@
 #include "SseTransport.h"
 #include "server/Server.h"
 #include "aixlog.hpp"
-#include "loader/PluginsLoader.h"
+#include "loader/PluginRegistry.h"
+#include "runtime/PluginRuntime.h"
+#include "tools/ToolProfile.h"
 #include "json.hpp"
 #include "utils/MCPBuilder.h"
+#include <algorithm>
+#include <chrono>
 #include <csignal>
 
 using namespace popl;
@@ -54,7 +58,10 @@ void stop_handler(sig_atomic_t s) {
 }
 
 /// Notification Implementation from plugins to mcp-client
-void ClientNotificationCallbackImpl(const char* pluginName, const char* notification) {
+void ClientNotificationCallbackImpl(
+    void*,
+    const char* pluginName,
+    const char* notification) {
     std::lock_guard<std::mutex> lock(notificationState.serverNotificationMutex);
     if (server && server->IsValid()) {
         server->SendNotification(pluginName, notification);
@@ -66,10 +73,16 @@ int main(int argc, char **argv) {
     std::string name;
     std::string plugins_directory;
     std::string logs_directory;
+    std::string plugin_staging_directory;
+    int plugin_debounce_ms;
+    int plugin_delete_grace_ms;
+    int plugin_retain_generations;
+    std::string tool_profile_name;
+    std::string tool_profiles_file;
     bool verbose;
 
     std::shared_ptr<vx::ITransport> transport;
-    auto loader = std::make_shared<vx::mcp::PluginsLoader>();
+    auto plugin_runtime = std::make_shared<vx::mcp::PluginRuntime>();
     server = std::make_shared<vx::mcp::Server>();
 
     //============================================================================================
@@ -85,11 +98,24 @@ int main(int argc, char **argv) {
     auto name_option = op.add<Value<std::string>>("n", "name", "the name of the server", "mcp-server");
     auto plugins_directory_option = op.add<Value<std::string>>("p", "plugins", "the directory where to load the plugins", "./plugins");
     auto logs_directory_option = op.add<Value<std::string>>("l", "logs", "the directory where to store the logs", "./logs");
+    auto plugin_staging_option = op.add<Value<std::string>>("", "plugin-staging", "the directory for staged plugin generations", "./build_dev/plugin-staging");
+    auto plugin_hot_reload = op.add<Switch>("", "plugin-hot-reload", "watch plugin files and reload them atomically");
+    auto plugin_debounce_option = op.add<Value<int>>("", "plugin-debounce-ms", "plugin watcher debounce in milliseconds", 300);
+    auto plugin_delete_grace_option = op.add<Value<int>>("", "plugin-delete-grace-ms", "plugin deletion grace period in milliseconds", 500);
+    auto plugin_retain_option = op.add<Value<int>>("", "plugin-retain-generations", "successful staged generations to retain", 2);
+    auto tool_profile_option = op.add<Value<std::string>>("", "tool-profile", "tool exposure profile (all or configured profile)", "all");
+    auto tool_profiles_file_option = op.add<Value<std::string>>("", "tool-profiles-file", "JSON file containing tool profiles", "./config/tool-profiles.json");
     auto verbose_option = op.add<Value<bool>>("v", "verbose", "enable verbose", verbose);
     auto use_sse_server = op.add<Switch>("s", "sse", "start as sse server");
     name_option->assign_to(&name);
     plugins_directory_option->assign_to(&plugins_directory);
     logs_directory_option->assign_to(&logs_directory);
+    plugin_staging_option->assign_to(&plugin_staging_directory);
+    plugin_debounce_option->assign_to(&plugin_debounce_ms);
+    plugin_delete_grace_option->assign_to(&plugin_delete_grace_ms);
+    plugin_retain_option->assign_to(&plugin_retain_generations);
+    tool_profile_option->assign_to(&tool_profile_name);
+    tool_profiles_file_option->assign_to(&tool_profiles_file);
     verbose_option->assign_to(&verbose);
 
     //============================================================================================
@@ -106,6 +132,15 @@ int main(int argc, char **argv) {
         return -1;
     } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
+        return -1;
+    }
+
+    std::shared_ptr<vx::mcp::ToolProfile> tool_profile;
+    try {
+        tool_profile = std::make_shared<vx::mcp::ToolProfile>(
+            vx::mcp::ToolProfile::Load(tool_profiles_file, tool_profile_name));
+    } catch (const std::exception& error) {
+        std::cerr << "Unable to load tool profile: " << error.what() << std::endl;
         return -1;
     }
 
@@ -148,16 +183,44 @@ int main(int argc, char **argv) {
     //============================================================================================
     // load all plugins from the plugins directory
     //============================================================================================
-    if (loader->LoadPlugins(plugins_directory)) {
-        LOG(INFO) << "Successfully loaded plugins" << std::endl;
+    PluginHostAPI host_api{
+        MCP_PLUGIN_ABI_VERSION,
+        sizeof(PluginHostAPI),
+        nullptr,
+        ClientNotificationCallbackImpl
+    };
+    std::string registry_error;
+    vx::mcp::PluginRuntimeConfig runtime_config;
+    runtime_config.source_directory = plugins_directory;
+    runtime_config.staging_directory = plugin_staging_directory;
+    runtime_config.host_api = host_api;
+    runtime_config.debounce = std::chrono::milliseconds(
+        std::max(0, plugin_debounce_ms));
+    runtime_config.delete_grace = std::chrono::milliseconds(
+        std::max(0, plugin_delete_grace_ms));
+    runtime_config.retain_generations = static_cast<std::size_t>(
+        std::max(1, plugin_retain_generations));
+    runtime_config.capability_notification = [](const std::string& method) {
+        nlohmann::json notification{
+            {"jsonrpc", "2.0"},
+            {"method", method}
+        };
+        const std::string payload = notification.dump();
+        ClientNotificationCallbackImpl(
+            nullptr, "plugin-runtime", payload.c_str());
+    };
+    if (!plugin_runtime->Initialize(runtime_config, &registry_error)) {
+        LOG(ERROR) << "Failed to initialize plugin runtime: "
+                   << registry_error << std::endl;
+        return -1;
     }
-
-    //============================================================================================
-    // enable notification system
-    //============================================================================================
-    for (auto& plugin : loader->GetPlugins()) {
-        plugin.instance->notifications = new NotificationSystem();
-        plugin.instance->notifications->SendToClient = ClientNotificationCallbackImpl;
+    LOG(INFO) << "Successfully initialized plugin runtime at generation "
+              << plugin_runtime->Snapshot()->Generation() << std::endl;
+    if (plugin_hot_reload->is_set() &&
+        !plugin_runtime->StartWatching(&registry_error)) {
+        LOG(ERROR) << "Failed to start plugin hot reload: "
+                   << registry_error << std::endl;
+        return -1;
     }
 
     //============================================================================================
@@ -165,54 +228,58 @@ int main(int argc, char **argv) {
     //============================================================================================
     server->Name(name);
     server->VerboseLevel(verbose ? 1 : 0);
-    server->OverrideCallback("tools/list", [&loader](const json& request) {
+    server->OverrideCallback("tools/list", [plugin_runtime, tool_profile](const json& request) {
+        const auto registry = plugin_runtime->Snapshot();
         nlohmann::ordered_json response = MCPBuilder::Response(request);
         response["result"]["tools"] = json::array();
 
-        for (const auto& plugin : loader->GetPlugins()) {
-            if (plugin.instance->GetType() == PLUGIN_TYPE_TOOLS) {
-                for (int i = 0; i < plugin.instance->GetToolCount(); i++) {
-                    nlohmann::ordered_json tool;
-                    auto pluginTool = plugin.instance->GetTool(i);
-                    tool["name"] = pluginTool->name;
-                    tool["description"] = pluginTool->description;
-                    tool["inputSchema"] = nlohmann::json::parse(pluginTool->inputSchema);
-                    response["result"]["tools"].push_back(tool);
-                }
-            }
+        for (const auto& route : registry->Tools()) {
+            if (!tool_profile->Allows(route.name)) continue;
+            response["result"]["tools"].push_back({
+                {"name", route.name},
+                {"description", route.description},
+                {"inputSchema", route.input_schema}
+            });
         }
 
         return response;
     });
-    server->OverrideCallback("tools/call", [&loader](const json& request) {
+    server->OverrideCallback("tools/call", [plugin_runtime, tool_profile](const json& request) {
+        const auto registry = plugin_runtime->Snapshot();
         nlohmann::ordered_json response = MCPBuilder::Response(request);
 
-        char* res_ptr = nullptr;
-
-        for (const auto& plugin : loader->GetPlugins()) {
-            if (plugin.instance->GetType() == PLUGIN_TYPE_TOOLS) {
-                for (int i = 0; i < plugin.instance->GetToolCount(); i++) {
-                    auto pluginTool = plugin.instance->GetTool(i);
-                    if (pluginTool->name == request["params"]["name"]) {
-                        res_ptr = plugin.instance->HandleRequest(request.dump().c_str());
-                        if (res_ptr) {
-                            try {
-                                response["result"] = json::parse(res_ptr);
-                                response["result"]["isError"] = false;
-                            } catch (const json::parse_error& e) {
-                                response["result"]["isError"] = true;
-                                response["result"]["content"] = json::array();
-                                response["result"]["content"].push_back({{"type", "text"}, {"text", "Plugin returned malformed data."}});
-                            }
-                            // --- Free the allocated memory ---
-                            delete[] res_ptr;
-                        } else {
-                            LOG(ERROR) << "Plugin " << pluginTool->name << " returned nullptr." << std::endl;
-                        }
-                        return response;
+        const std::string tool_name = request["params"]["name"];
+        if (!tool_profile->Allows(tool_name)) {
+            response["result"]["isError"] = true;
+            response["result"]["content"] = json::array({{
+                {"type", "text"},
+                {"text", "Tool is not available in profile: " + tool_profile->Name()}
+            }});
+            return response;
+        }
+        const vx::mcp::ToolRoute* route = registry->FindTool(tool_name);
+        if (route) {
+            const auto plugin = route->plugin;
+            char* res_ptr = plugin->Api().HandleRequest(request.dump().c_str());
+            if (res_ptr) {
+                try {
+                    response["result"] = json::parse(res_ptr);
+                    if (!response["result"].contains("isError")) {
+                        response["result"]["isError"] = false;
                     }
+                } catch (const json::parse_error&) {
+                    response["result"]["isError"] = true;
+                    response["result"]["content"] = json::array();
+                    response["result"]["content"].push_back({
+                        {"type", "text"}, {"text", "Plugin returned malformed data."}
+                    });
                 }
+                plugin->FreeResult(res_ptr);
+            } else {
+                LOG(ERROR) << "Plugin " << tool_name
+                           << " returned nullptr." << std::endl;
             }
+            return response;
         }
 
         // 未找到匹配的工具，返回错误
@@ -220,101 +287,80 @@ int main(int argc, char **argv) {
         response["result"]["content"] = json::array();
         response["result"]["content"].push_back({
             {"type", "text"},
-            {"text", "Tool not found: " + request["params"]["name"].get<std::string>()}
+            {"text", "Tool not found: " + tool_name}
         });
         return response;
     });
-    server->OverrideCallback("prompts/list", [&loader](const json& request) {
+    server->OverrideCallback("prompts/list", [plugin_runtime](const json& request) {
+        const auto registry = plugin_runtime->Snapshot();
         nlohmann::ordered_json response = MCPBuilder::Response(request);
         response["result"]["prompts"] = json::array();
 
-        for (const auto& plugin : loader->GetPlugins()) {
-            if (plugin.instance->GetType() == PLUGIN_TYPE_PROMPTS) {
-                for (int i = 0; i < plugin.instance->GetPromptCount(); i++) {
-                    nlohmann::ordered_json prompt;
-                    auto pluginPrompt = plugin.instance->GetPrompt(i);
-                    prompt["name"] = pluginPrompt->name;
-                    prompt["description"] = pluginPrompt->description;
-                    prompt["arguments"] = nlohmann::json::parse(pluginPrompt->arguments);
-                    response["result"]["prompts"].push_back(prompt);
-                }
-            }
+        for (const auto& route : registry->Prompts()) {
+            response["result"]["prompts"].push_back({
+                {"name", route.name},
+                {"description", route.description},
+                {"arguments", route.arguments}
+            });
         }
 
         return response;
     });
-    server->OverrideCallback("prompts/get", [&loader](const json& request) {
+    server->OverrideCallback("prompts/get", [plugin_runtime](const json& request) {
+        const auto registry = plugin_runtime->Snapshot();
         nlohmann::ordered_json response = MCPBuilder::Response(request);
 
-        char* res_ptr = nullptr;
-
-        for (const auto& plugin : loader->GetPlugins()) {
-            if (plugin.instance->GetType() == PLUGIN_TYPE_PROMPTS) {
-                for (int i = 0; i < plugin.instance->GetPromptCount(); i++) {
-                    auto pluginPrompt = plugin.instance->GetPrompt(i);
-                    if (pluginPrompt->name == request["params"]["name"]) {
-                        res_ptr = plugin.instance->HandleRequest(request.dump().c_str());
-                        if (res_ptr) {
-                            try {
-                                response["result"] = json::parse(res_ptr);
-                            } catch (const json::parse_error& e) {
-                                LOG(ERROR) << "Plugin " << pluginPrompt->name << " returned malformed data." << std::endl;
-                                // TODO: how can we handle error here ?
-                            }
-                            // --- Free the allocated memory ---
-                            delete[] res_ptr;
-                        }
-                    }
-                    return response;
+        const std::string prompt_name = request["params"]["name"];
+        const vx::mcp::PromptRoute* route = registry->FindPrompt(prompt_name);
+        if (route) {
+            const auto plugin = route->plugin;
+            char* res_ptr = plugin->Api().HandleRequest(request.dump().c_str());
+            if (res_ptr) {
+                try {
+                    response["result"] = json::parse(res_ptr);
+                } catch (const json::parse_error&) {
+                    LOG(ERROR) << "Plugin " << prompt_name
+                               << " returned malformed data." << std::endl;
                 }
+                plugin->FreeResult(res_ptr);
             }
         }
 
         return response;
     });
-    server->OverrideCallback("resources/list", [&loader](const json& request) {
+    server->OverrideCallback("resources/list", [plugin_runtime](const json& request) {
+        const auto registry = plugin_runtime->Snapshot();
         nlohmann::ordered_json response = MCPBuilder::Response(request);
         response["result"]["resources"] = json::array();
 
-        for (const auto& plugin : loader->GetPlugins()) {
-            if (plugin.instance->GetType() == PLUGIN_TYPE_RESOURCES) {
-                for (int i = 0; i < plugin.instance->GetResourceCount(); i++) {
-                    nlohmann::ordered_json resource;
-                    auto pluginResource = plugin.instance->GetResource(i);
-                    resource["name"] = pluginResource->name;
-                    resource["description"] = pluginResource->description;
-                    resource["uri"] = pluginResource->uri;
-                    resource["mimeType"] = pluginResource->mime;
-                    response["result"]["resources"].push_back(resource);
-                }
-            }
+        for (const auto& route : registry->Resources()) {
+            response["result"]["resources"].push_back({
+                {"name", route.name},
+                {"description", route.description},
+                {"uri", route.uri},
+                {"mimeType", route.mime_type}
+            });
         }
 
         return response;
     });
-    server->OverrideCallback("resources/read", [&loader](const json& request) {
+    server->OverrideCallback("resources/read", [plugin_runtime](const json& request) {
+        const auto registry = plugin_runtime->Snapshot();
         nlohmann::ordered_json response = MCPBuilder::Response(request);
 
-        char* res_ptr = nullptr;
-
-        for (const auto& plugin : loader->GetPlugins()) {
-            if (plugin.instance->GetType() == PLUGIN_TYPE_RESOURCES) {
-                for (int i = 0; i < plugin.instance->GetResourceCount(); i++) {
-                    auto pluginResource = plugin.instance->GetResource(i);
-                    if (pluginResource->uri == request["params"]["uri"]) {
-                        res_ptr = plugin.instance->HandleRequest(request.dump().c_str());
-                        if (res_ptr) {
-                            try {
-                                response["result"] = json::parse(res_ptr);
-                            } catch (const json::parse_error& e) {
-                                LOG(ERROR) << "Plugin " << pluginResource->name << " returned malformed data." << std::endl;
-                                // TODO: how can we handle error here ?
-                            }
-                            // --- Free the allocated memory ---
-                            delete[] res_ptr;
-                        }
-                    }
+        const std::string uri = request["params"]["uri"];
+        const vx::mcp::ResourceRoute* route = registry->FindResource(uri);
+        if (route) {
+            const auto plugin = route->plugin;
+            char* res_ptr = plugin->Api().HandleRequest(request.dump().c_str());
+            if (res_ptr) {
+                try {
+                    response["result"] = json::parse(res_ptr);
+                } catch (const json::parse_error&) {
+                    LOG(ERROR) << "Plugin resource " << route->name
+                               << " returned malformed data." << std::endl;
                 }
+                plugin->FreeResult(res_ptr);
             }
         }
 
@@ -322,6 +368,7 @@ int main(int argc, char **argv) {
     });
 
     server->Connect(transport);
+    plugin_runtime->StopWatching();
 
     return 0;
 }

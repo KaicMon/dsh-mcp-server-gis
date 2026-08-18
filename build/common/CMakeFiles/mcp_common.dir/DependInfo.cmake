@@ -8,15 +8,11 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/ubuntu/ai/mcp/common/src/logger.cpp" "common/CMakeFiles/mcp_common.dir/src/logger.cpp.o" "gcc" "common/CMakeFiles/mcp_common.dir/src/logger.cpp.o.d"
+  "/home/humr/agan-projects/mcp/common/src/logger.cpp" "common/CMakeFiles/mcp_common.dir/src/logger.cpp.o" "gcc" "common/CMakeFiles/mcp_common.dir/src/logger.cpp.o.d"
   )
 
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
-  )
-
-# Targets to which this target links which contain Fortran sources.
-set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
+# Targets to which this target links.
+set(CMAKE_TARGET_LINKED_INFO_FILES
   )
 
 # Fortran module output directory.

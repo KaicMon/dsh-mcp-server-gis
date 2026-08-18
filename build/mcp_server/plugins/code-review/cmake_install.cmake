@@ -1,4 +1,4 @@
-# Install script for directory: /home/ubuntu/ai/mcp/mcp_server/plugins/code-review
+# Install script for directory: /home/humr/agan-projects/mcp/mcp_server/plugins/code-review
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

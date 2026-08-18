@@ -225,6 +225,10 @@ char* HandleRequestImpl(const char* req) {
 void ShutdownImpl() {
 }
 
+void FreeResultImpl(char* result) {
+    delete[] result;
+}
+
 int GetResourceCountImpl() {
     return sizeof(resources) / sizeof(resources[0]);
 }
@@ -235,6 +239,8 @@ const PluginResource* GetResourceImpl(int index) {
 }
 
 static PluginAPI plugin = {
+        MCP_PLUGIN_ABI_VERSION,
+        sizeof(PluginAPI),
         GetNameImpl,
         GetVersionImpl,
         GetTypeImpl,
@@ -246,7 +252,9 @@ static PluginAPI plugin = {
         nullptr,
         nullptr,
         GetResourceCountImpl,
-        GetResourceImpl
+        GetResourceImpl,
+        FreeResultImpl,
+        nullptr
 };
 
 extern "C" PLUGIN_API PluginAPI* CreatePlugin() {

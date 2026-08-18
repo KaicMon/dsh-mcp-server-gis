@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>南京 OSM 路径规划</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html,body,#map{height:100%;margin:0} .panel{position:absolute;z-index:1000;top:12px;left:50px;
+    background:#fff;padding:12px;border-radius:8px;box-shadow:0 2px 12px #0003;font:14px sans-serif}
+  </style>
+</head>
+<body>
+<div class="panel"><b>南京路径规划</b><div id="status">依次点击地图选择起点和终点</div></div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const map=L.map('map').setView([32.0438,118.7789],12);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+let points=[],markers=[],route;
+map.on('click',async e=>{
+  if(points.length===2){points=[];markers.forEach(x=>x.remove());markers=[];if(route)route.remove();}
+  points.push({longitude:e.latlng.lng,latitude:e.latlng.lat});markers.push(L.marker(e.latlng).addTo(map));
+  if(points.length<2)return;
+  document.querySelector('#status').textContent='计算中…';
+  const response=await fetch('/api/v1/routes',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({source:points[0],target:points[1],snapRadiusMeters:2000})});
+  const data=await response.json();
+  if(!response.ok){document.querySelector('#status').textContent='未找到路线';return;}
+  route=L.geoJSON(data,{style:{color:'#1769ff',weight:6}}).addTo(map);map.fitBounds(route.getBounds(),{padding:[30,30]});
+  const p=data.properties;document.querySelector('#status').textContent=
+    `${(p.distanceMeters/1000).toFixed(2)} km · ${(p.durationSeconds/60).toFixed(1)} 分钟 · ${p.networkVersion}`;
+});
+</script>
+</body>
+</html>

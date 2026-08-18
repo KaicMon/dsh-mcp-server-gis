@@ -1,0 +1,27 @@
+{
+  "profiles": {
+    "gis-agent": {
+      "include": [
+        "geometry_*",
+        "coordinate_transform",
+        "point_in_polygon",
+        "dataset_info",
+        "features_within",
+        "geocode",
+        "reverse_geocode",
+        "poi_search",
+        "nearby_search",
+        "search_nearby_by_place",
+        "administrative_search",
+        "provider_route",
+        "nearest_road",
+        "map_match"
+      ],
+      "exclude": ["map_provider_status", "routing_status"]
+    },
+    "harness-hot-reload-test": {
+      "include": ["runtime_tool", "loader_test_tool"],
+      "exclude": []
+    }
+  }
+}

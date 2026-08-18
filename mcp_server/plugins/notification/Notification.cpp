@@ -72,7 +72,12 @@ char* HandleRequestImpl(const char* req) {
     if (request["params"]["name"] == "logging_test") {
         if (g_plugin) {
             std::string message = MCPBuilder::NotificationLog("notice","****** THIS IS A LOGGING TEST!").dump();
-            g_plugin->notifications->SendToClient(GetNameImpl(), message.c_str());
+            if (g_plugin && g_plugin->host && g_plugin->host->SendToClient) {
+                g_plugin->host->SendToClient(
+                    g_plugin->host->hostContext,
+                    GetNameImpl(),
+                    message.c_str());
+            }
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     } else if (request["params"]["name"] == "progress_test") {
@@ -110,7 +115,12 @@ char* HandleRequestImpl(const char* req) {
                 std::string message = MCPBuilder::NotificationProgress(progressMessage, progressToken, progressPercent, 100).dump();
 
                 // Send notification to client
-                g_plugin->notifications->SendToClient(GetNameImpl(), message.c_str());
+                if (g_plugin && g_plugin->host && g_plugin->host->SendToClient) {
+                    g_plugin->host->SendToClient(
+                        g_plugin->host->hostContext,
+                        GetNameImpl(),
+                        message.c_str());
+                }
             }
         }
     }
@@ -136,6 +146,10 @@ char* HandleRequestImpl(const char* req) {
 void ShutdownImpl() {
 }
 
+void FreeResultImpl(char* result) {
+    delete[] result;
+}
+
 int GetToolCountImpl() {
     return sizeof(methods) / sizeof(methods[0]);
 }
@@ -146,6 +160,8 @@ const PluginTool* GetToolImpl(int index) {
 }
 
 static PluginAPI plugin = {
+        MCP_PLUGIN_ABI_VERSION,
+        sizeof(PluginAPI),
         GetNameImpl,
         GetVersionImpl,
         GetTypeImpl,
@@ -157,6 +173,8 @@ static PluginAPI plugin = {
         nullptr,
         nullptr,
         nullptr,
+        nullptr,
+        FreeResultImpl,
         nullptr
 };
 
