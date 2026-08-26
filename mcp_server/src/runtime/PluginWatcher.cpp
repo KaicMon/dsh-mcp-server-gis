@@ -3,6 +3,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <stop_token>
 #include <thread>
 
 #include "aixlog.hpp"
@@ -38,7 +39,9 @@ public:
             CloseDescriptors();
             return false;
         }
-        thread_ = std::thread(&InotifyPluginWatcher::Run, this);
+        thread_ = std::jthread([this](std::stop_token stop_token) {
+            Run(stop_token);
+        });
         return true;
     }
 
@@ -48,6 +51,7 @@ public:
             const char byte = 1;
             (void)write(wake_pipe_[1], &byte, 1);
         }
+        thread_.request_stop();
         if (thread_.joinable()) thread_.join();
         CloseDescriptors();
     }
@@ -72,9 +76,9 @@ private:
         return true;
     }
 
-    void Run() {
+    void Run(std::stop_token stop_token) {
         alignas(inotify_event) char buffer[64 * 1024];
-        while (running_) {
+        while (running_ && !stop_token.stop_requested()) {
             pollfd descriptors[2]{{inotify_fd_, POLLIN, 0},
                                   {wake_pipe_[0], POLLIN, 0}};
             const int ready = poll(descriptors, 2, -1);
@@ -128,7 +132,7 @@ private:
     int inotify_fd_ = -1;
     int wake_pipe_[2]{-1, -1};
     std::map<int, std::filesystem::path> watches_;
-    std::thread thread_;
+    std::jthread thread_;
 };
 
 } // namespace

@@ -6,6 +6,18 @@ source commit used by deterministic headless tests and the nearest published
 Web bundle. The Cordis patches attach this C++ server through the official
 `@deepseek-ai/dsh-mcp-client` plugin.
 
+It also ships `@local/dsh-mcp-control-plane`, a Cordis Host plugin that
+observes the `mcp__gis__*` Tool namespace and reports synchronized Tool-set
+generations. It does not open a second MCP connection or grant arbitrary
+process-control privileges. Build it once with
+`bash integrations/deepseek-harness/build-control-plane.sh`.
+
+`@local/dsh-mcp-rag-bridge` is also installed as a read-only catalog observer.
+Build it with `bash integrations/deepseek-harness/build-rag-bridge.sh`. It
+measures the complete MCP schema catalog and can preview candidates, but the
+configured `selectionEnabled: false` deliberately keeps all current Tool
+schemas visible to Qwen until the Agent Loop filtering phase is implemented.
+
 ## Prerequisites
 
 - Node.js 22.19+ or 24+;
@@ -20,6 +32,8 @@ Web bundle. The Cordis patches attach this C++ server through the official
 cmake -S . -B build_dev/gis-full-debug \
   -DCMAKE_BUILD_TYPE=Debug -DBUILD_GIS=ON -DBUILD_ROUTING=ON
 cmake --build build_dev/gis-full-debug -j2
+bash integrations/deepseek-harness/build-control-plane.sh
+bash integrations/deepseek-harness/build-rag-bridge.sh
 export AMAP_API_KEY='...'
 export DSH_GIS_API_KEY='...'
 export DSH_GIS_LLM_BASE_URL='https://dashscope.aliyuncs.com/compatible-mode/v1'

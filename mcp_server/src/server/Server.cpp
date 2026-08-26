@@ -62,17 +62,21 @@ namespace vx::mcp {
         Stop();
     }
 
-    void Server::WriterLoop() {
+    void Server::WriterLoop(std::stop_token stop_token) {
         LOG(INFO) << "Writer thread started." << std::endl;
-        while (writer_running_.load()) {
+        while (writer_running_.load() && !stop_token.stop_requested()) {
             std::string notification_to_send;
             {
                 std::unique_lock<std::mutex> lock(output_mutex_);
                 // Wait until queue is not empty OR the writer should stop
-                queue_cv_.wait(lock, [this] { return !notification_queue_.empty() || !writer_running_.load(); });
+                queue_cv_.wait(lock, [this, stop_token] {
+                    return !notification_queue_.empty() ||
+                           !writer_running_.load() || stop_token.stop_requested();
+                });
 
                 // Check running flag again after waking up
-                if (!writer_running_.load() && notification_queue_.empty()) {
+                if ((!writer_running_.load() || stop_token.stop_requested()) &&
+                    notification_queue_.empty()) {
                     break; // Exit loop if stopped and queue is empty
                 }
 
@@ -115,11 +119,17 @@ namespace vx::mcp {
 
         // Start the writer thread
         writer_running_ = true;
-        writer_thread_ = std::thread(&Server::WriterLoop, this);
+        writer_thread_ = std::jthread([this](std::stop_token stop_token) {
+            WriterLoop(stop_token);
+        });
 
         // Start transport (required for SSE; should be a no-op/true for stdio)
         if (!transport_->Start()) {
             LOG(ERROR) << "Failed to start transport: " << transport_->GetName() << std::endl;
+            writer_running_ = false;
+            writer_thread_.request_stop();
+            queue_cv_.notify_all();
+            writer_thread_.join();
             return false;
         }
 
@@ -168,7 +178,9 @@ namespace vx::mcp {
 
         // Start the writer thread
         writer_running_ = true;
-        writer_thread_ = std::thread(&Server::WriterLoop, this);
+        writer_thread_ = std::jthread([this](std::stop_token stop_token) {
+            WriterLoop(stop_token);
+        });
 
         // Start the async reader thread
         reader_running_ = true;
@@ -230,7 +242,8 @@ namespace vx::mcp {
 
         // Signal and join writer thread
         writer_running_ = false;
-        queue_cv_.notify_one(); // Wake up the writer thread if waiting
+        writer_thread_.request_stop();
+        queue_cv_.notify_all(); // Wake up the writer thread if waiting
         if (writer_thread_.joinable()) {
             writer_thread_.join();
             LOG(INFO) << "Writer thread joined." << std::endl;
@@ -508,7 +521,8 @@ namespace vx::mcp {
 
         // Stop writer thread
         writer_running_ = false;
-        queue_cv_.notify_one();
+        writer_thread_.request_stop();
+        queue_cv_.notify_all();
         if (writer_thread_.joinable()) {
             writer_thread_.join();
             LOG(INFO) << "Writer thread joined." << std::endl;

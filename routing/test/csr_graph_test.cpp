@@ -26,6 +26,17 @@ int main() {
     Require(graph.NodeCount() == 5, "dense node count");
     Require(graph.EdgeCount() == 8, "CSR edge count");
     Require(graph.offsets.size() == 6, "CSR offset count");
+
+    // C++20 views keep CSR slices non-owning: the data pointer is the graph's
+    // compact backing store rather than a per-query copy.
+    const auto outgoing = graph.OutgoingTargets(0);
+    Require(!outgoing.empty(), "outgoing target view should expose CSR slice");
+    Require(outgoing.data() == graph.targets.data() + graph.offsets[0],
+            "outgoing target view should not copy CSR targets");
+    const auto edge_geometry = graph.EdgeGeometry(0);
+    Require(!edge_geometry.empty(), "edge geometry view should expose shape points");
+    Require(edge_geometry.data() == graph.geometry.data() + graph.geometry_offsets[0],
+            "edge geometry view should not copy CSR geometry");
     Require(graph.geometry_offsets.size() == 9, "geometry offset count");
 
     const auto temp = std::filesystem::temp_directory_path() / "routing-csr-test.route";

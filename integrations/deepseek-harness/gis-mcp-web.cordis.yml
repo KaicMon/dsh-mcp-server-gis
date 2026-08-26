@@ -53,6 +53,24 @@
       - id: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
         name: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
 
+# Observes the official MCP bridge through Cordis's public Tool registry.
+# This module never opens another STDIO connection to the C++ server.
+- id: mcp-control-plane
+  name: '@local/dsh-mcp-control-plane'
+  config:
+    serverName: gis
+    logTransitions: true
+
+# Catalog and retrieval baseline only. This does not filter the schemas Qwen
+# receives; turning selection on requires the future Agent Loop extension.
+- id: mcp-rag-bridge
+  name: '@local/dsh-mcp-rag-bridge'
+  config:
+    serverName: gis
+    topK: 6
+    selectionEnabled: false
+    logTransitions: true
+
 - id: agent-default-model
   config:
     provider: deepseek-official

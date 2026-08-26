@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <stop_token>
 #include <thread>
 #include <unordered_map>
 
@@ -82,7 +83,10 @@ private:
         std::uint64_t generation,
         std::string* error) const;
     void QueueFileEvent(const PluginFileEvent& event);
-    void EventLoop();
+    // The stop token is the ownership-safe cancellation channel for the
+    // monitor thread. `event_running_` remains the predicate shared with the
+    // file-watcher callback, while jthread guarantees a join on destruction.
+    void EventLoop(std::stop_token stop_token);
     void Reconcile();
     void NotifyCapabilityChanges(
         const std::shared_ptr<const PluginRegistry>& previous,
@@ -112,7 +116,7 @@ private:
         std::chrono::steady_clock::time_point ready_at;
     };
     std::unordered_map<std::string, PendingEvent> pending_events_;
-    std::thread event_thread_;
+    std::jthread event_thread_;
     bool event_running_ = false;
 };
 

@@ -1,6 +1,7 @@
 /build_dev/
 /build/
 /build-local/
+node_modules
 
 
 # OSM source extracts and generated routing artifacts are reproducible but large.

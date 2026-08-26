@@ -1,0 +1,24 @@
+{
+  "name": "@local/dsh-mcp-control-plane",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.mjs",
+  "types": "lib/index.d.mts",
+  "exports": {
+    ".": { "types": "./lib/index.d.mts", "default": "./lib/index.mjs" },
+    "./package.json": "./package.json"
+  },
+  "scripts": { "bundle": "tsdown" },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "0.1.0-rc.5",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.5"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-tools": "workspace:^",
+    "@deepseek-ai/schemastery": "workspace:^",
+    "tsdown": "^0.22.2"
+  },
+  "files": ["lib/index.mjs", "lib/index.d.mts"]
+}

@@ -45,6 +45,10 @@ renderer_profile_dir="$DSH_HOME/profiles/node_modules/@local"
 mkdir -p "$renderer_profile_dir"
 ln -sfn "$integration_root/renderer" \
     "$renderer_profile_dir/gis-mcp-harness-renderer"
+ln -sfn "$integration_root/control-plane" \
+    "$renderer_profile_dir/dsh-mcp-control-plane"
+ln -sfn "$integration_root/rag-bridge" \
+    "$renderer_profile_dir/dsh-mcp-rag-bridge"
 
 test -x "$MCP_SERVER_BINARY" || {
     echo "MCP server not built: $MCP_SERVER_BINARY" >&2
@@ -52,6 +56,14 @@ test -x "$MCP_SERVER_BINARY" || {
 }
 test -f "$GIS_HARNESS_RENDERER/lib/client.js" || {
     echo 'Harness GIS renderer is not built; run integrations/deepseek-harness/build-renderer.sh' >&2
+    exit 2
+}
+test -f "$integration_root/control-plane/lib/index.mjs" || {
+    echo 'MCP control-plane plugin is not built; run integrations/deepseek-harness/build-control-plane.sh' >&2
+    exit 2
+}
+test -f "$integration_root/rag-bridge/lib/index.mjs" || {
+    echo 'MCP RAG bridge is not built; run integrations/deepseek-harness/build-rag-bridge.sh' >&2
     exit 2
 }
 

@@ -1,8 +1,11 @@
 #include "routing/router.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cmath>
 #include <functional>
+#include <memory_resource>
 #include <numeric>
 #include <queue>
 #include <stdexcept>
@@ -13,6 +16,23 @@ namespace {
 
 constexpr NodeId kInvalidNode = std::numeric_limits<NodeId>::max();
 constexpr EdgeId kInvalidEdge = std::numeric_limits<EdgeId>::max();
+
+// Route search allocates several dense work arrays. Most city-scale queries
+// fit in this local arena; larger ones transparently fall back to the upstream
+// resource and release all transient allocations together on return.
+constexpr std::size_t kRouteScratchBytes = 64 * 1024;
+
+class QueryMemory final {
+public:
+    QueryMemory()
+        : resource_(storage_.data(), storage_.size(), std::pmr::new_delete_resource()) {}
+
+    std::pmr::memory_resource* Resource() noexcept { return &resource_; }
+
+private:
+    std::array<std::byte, kRouteScratchBytes> storage_{};
+    std::pmr::monotonic_buffer_resource resource_;
+};
 
 double HaversineMeters(const Coordinate& lhs, const Coordinate& rhs) {
     constexpr double kEarthRadiusMeters = 6371008.8;
@@ -86,11 +106,15 @@ RouteResult Router::Route(NodeId source,
     // cost is the best known g-score. previous_* forms a compact predecessor
     // tree and is populated only when an edge strictly improves that score.
     const double infinity = std::numeric_limits<double>::infinity();
-    std::vector<double> cost(graph_.NodeCount(), infinity);
-    std::vector<NodeId> previous_node(graph_.NodeCount(), kInvalidNode);
-    std::vector<EdgeId> previous_edge(graph_.NodeCount(), kInvalidEdge);
+    QueryMemory memory;
+    std::pmr::vector<double> cost(graph_.NodeCount(), infinity, memory.Resource());
+    std::pmr::vector<NodeId> previous_node(
+        graph_.NodeCount(), kInvalidNode, memory.Resource());
+    std::pmr::vector<EdgeId> previous_edge(
+        graph_.NodeCount(), kInvalidEdge, memory.Resource());
     using QueueEntry = std::pair<double, NodeId>;
-    std::priority_queue<QueueEntry, std::vector<QueueEntry>, std::greater<>> queue;
+    std::priority_queue<QueueEntry, std::pmr::vector<QueueEntry>, std::greater<>> queue(
+        std::greater<>{}, std::pmr::vector<QueueEntry>{memory.Resource()});
     cost[source] = 0.0;
     queue.emplace(options.algorithm == SearchAlgorithm::AStar
                       ? Heuristic(source, target, options.metric)
@@ -161,11 +185,10 @@ void Router::PopulateResult(RouteResult& result,
     for (const EdgeId edge : edges) {
         result.distance_m += graph_.distance_m[edge];
         result.duration_s += graph_.duration_s[edge];
-        const auto begin = graph_.geometry_offsets[edge];
-        const auto end = graph_.geometry_offsets[edge + 1];
-        for (std::uint64_t index = begin; index < end; ++index) {
-            if (!result.geometry.empty() && index == begin) continue;
-            result.geometry.push_back(graph_.geometry[index]);
+        const auto geometry = graph_.EdgeGeometry(edge);
+        for (std::size_t index = 0; index < geometry.size(); ++index) {
+            if (!result.geometry.empty() && index == 0) continue;
+            result.geometry.push_back(geometry[index]);
         }
     }
 }
@@ -180,15 +203,20 @@ RouteResult Router::RouteBidirectional(NodeId source,
                    ? static_cast<double>(graph_.distance_m[edge])
                    : static_cast<double>(graph_.duration_s[edge]);
     };
-    std::vector<double> forward(graph_.NodeCount(), infinity);
-    std::vector<double> backward(graph_.NodeCount(), infinity);
-    std::vector<NodeId> previous_node(graph_.NodeCount(), kInvalidNode);
-    std::vector<EdgeId> previous_edge(graph_.NodeCount(), kInvalidEdge);
-    std::vector<NodeId> next_node(graph_.NodeCount(), kInvalidNode);
-    std::vector<EdgeId> next_edge(graph_.NodeCount(), kInvalidEdge);
+    QueryMemory memory;
+    std::pmr::vector<double> forward(graph_.NodeCount(), infinity, memory.Resource());
+    std::pmr::vector<double> backward(graph_.NodeCount(), infinity, memory.Resource());
+    std::pmr::vector<NodeId> previous_node(
+        graph_.NodeCount(), kInvalidNode, memory.Resource());
+    std::pmr::vector<EdgeId> previous_edge(
+        graph_.NodeCount(), kInvalidEdge, memory.Resource());
+    std::pmr::vector<NodeId> next_node(graph_.NodeCount(), kInvalidNode, memory.Resource());
+    std::pmr::vector<EdgeId> next_edge(graph_.NodeCount(), kInvalidEdge, memory.Resource());
     using Entry = std::pair<double, NodeId>;
-    std::priority_queue<Entry, std::vector<Entry>, std::greater<>> forward_queue;
-    std::priority_queue<Entry, std::vector<Entry>, std::greater<>> backward_queue;
+    std::priority_queue<Entry, std::pmr::vector<Entry>, std::greater<>> forward_queue(
+        std::greater<>{}, std::pmr::vector<Entry>{memory.Resource()});
+    std::priority_queue<Entry, std::pmr::vector<Entry>, std::greater<>> backward_queue(
+        std::greater<>{}, std::pmr::vector<Entry>{memory.Resource()});
     forward[source] = 0.0;
     backward[target] = 0.0;
     forward_queue.emplace(0.0, source);

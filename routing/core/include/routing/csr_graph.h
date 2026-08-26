@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <vector>
 
 namespace routing {
@@ -29,6 +30,21 @@ struct CsrGraph {
 
     [[nodiscard]] std::size_t NodeCount() const noexcept { return node_osm_ids.size(); }
     [[nodiscard]] std::size_t EdgeCount() const noexcept { return targets.size(); }
+
+    // Non-owning views avoid copying contiguous CSR data into each route
+    // response. Callers must not retain a view after the immutable graph
+    // snapshot itself has been destroyed.
+    [[nodiscard]] std::span<const NodeId> OutgoingTargets(NodeId node) const noexcept {
+        const auto begin = static_cast<std::size_t>(offsets[node]);
+        const auto end = static_cast<std::size_t>(offsets[node + 1]);
+        return {targets.data() + begin, end - begin};
+    }
+
+    [[nodiscard]] std::span<const Coordinate> EdgeGeometry(EdgeId edge) const noexcept {
+        const auto begin = static_cast<std::size_t>(geometry_offsets[edge]);
+        const auto end = static_cast<std::size_t>(geometry_offsets[edge + 1]);
+        return {geometry.data() + begin, end - begin};
+    }
     void Validate() const;
 };
 

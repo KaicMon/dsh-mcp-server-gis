@@ -27,6 +27,7 @@
 
 #include <memory>
 #include <queue>
+#include <stop_token>
 #include <thread>
 #include <condition_variable>
 #include "ITransport.h"
@@ -68,7 +69,10 @@ namespace vx::mcp {
         void SendNotification(const std::string& pluginName, const char* notification);
 
     private:
-        void WriterLoop();
+        // Notifications are independent from request responses. A stop token
+        // makes the writer's ownership and shutdown intent explicit while the
+        // existing flag remains compatible with the queue predicate.
+        void WriterLoop(std::stop_token stop_token);
         json HandleRequest(const json& request);
 
         json InitializeCmd(const json& request);
@@ -108,7 +112,7 @@ namespace vx::mcp {
         std::queue<std::string> notification_queue_;
         std::mutex output_mutex_; // Protects both queue and transport writes
         std::condition_variable queue_cv_;
-        std::thread writer_thread_;
+        std::jthread writer_thread_;
         std::atomic<bool> writer_running_{false};
 
         std::thread reader_thread_;

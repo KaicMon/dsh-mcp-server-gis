@@ -166,13 +166,16 @@ bool PluginRuntime::StartWatching(std::string* error) {
         return false;
     }
     event_running_ = true;
-    event_thread_ = std::thread(&PluginRuntime::EventLoop, this);
+    event_thread_ = std::jthread([this](std::stop_token stop_token) {
+        EventLoop(stop_token);
+    });
     if (!watcher_->Start([this](const PluginFileEvent& event) {
             QueueFileEvent(event);
         })) {
         event_running_ = false;
         event_lock.unlock();
         event_cv_.notify_all();
+        event_thread_.request_stop();
         event_thread_.join();
         event_lock.lock();
         watcher_.reset();
@@ -192,6 +195,7 @@ void PluginRuntime::StopWatching() {
         watcher = std::move(watcher_);
     }
     if (watcher) watcher->Stop();
+    event_thread_.request_stop();
     event_cv_.notify_all();
     if (event_thread_.joinable()) event_thread_.join();
 }
@@ -208,9 +212,9 @@ void PluginRuntime::QueueFileEvent(const PluginFileEvent& event) {
     event_cv_.notify_one();
 }
 
-void PluginRuntime::EventLoop() {
+void PluginRuntime::EventLoop(std::stop_token stop_token) {
     std::unique_lock<std::mutex> lock(event_mutex_);
-    while (event_running_) {
+    while (event_running_ && !stop_token.stop_requested()) {
         if (pending_events_.empty()) {
             event_cv_.wait(lock, [this] {
                 return !event_running_ || !pending_events_.empty();

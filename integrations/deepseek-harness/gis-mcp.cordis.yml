@@ -53,6 +53,23 @@
       - id: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
         name: !!js process.env.DSH_GIS_MODEL || 'qwen-plus'
 
+# The headless patch loads the repository-owned Node bundle directly.
+- id: mcp-control-plane
+  name: '/home/humr/agan-projects/mcp/integrations/deepseek-harness/control-plane/lib/index.mjs'
+  config:
+    serverName: gis
+    logTransitions: true
+
+# Headless counterpart of the Web catalog observer. It is intentionally not a
+# Tool filter so existing acceptance behavior stays unchanged.
+- id: mcp-rag-bridge
+  name: '/home/humr/agan-projects/mcp/integrations/deepseek-harness/rag-bridge/lib/index.mjs'
+  config:
+    serverName: gis
+    topK: 6
+    selectionEnabled: false
+    logTransitions: true
+
 - id: agent-default-model
   config:
     provider: deepseek-official
