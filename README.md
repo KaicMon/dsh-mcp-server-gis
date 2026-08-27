@@ -8,7 +8,7 @@
 
 ## Why C++
 
-MCP 协议本身不要求 C++。本项目使用 C++ 是为了让 MCP Server 成为 GDAL/GEOS/PROJ、CSR 路网、A* 搜索等原生计算能力的长期运行宿主：
+本项目使用 C++ 是为了让 MCP Server 成为 GDAL/GEOS/PROJ、CSR 路网、A* 搜索等原生计算能力的长期运行宿主：
 
 - C ABI `PluginAPI` + `dlopen/dlsym` 动态发现和加载插件；
 - Staging 校验、原子 `shared_ptr` Registry 快照和延迟回收，支持插件能力无中断切换；
@@ -17,18 +17,100 @@ MCP 协议本身不要求 C++。本项目使用 C++ 是为了让 MCP Server 成�
 
 ## Architecture
 
-```text
-Agent / MCP Client / DeepSeek Harness
-              │ JSON-RPC over STDIO
-              ▼
-          mcp_server
-              │
-      immutable PluginRegistry snapshot
-       ┌──────┼───────────┐
-       ▼      ▼           ▼
-gis-analysis  map-services  osm-routing
-GDAL/GEOS     Provider/POI  CSR graph / A* / map matching
+```mermaid
+flowchart TB
+    User[用户自然语言请求]
+    Agent[LLM / Agent\nQwen or other OpenAI-compatible model]
+    DSH[DeepSeek Harness\nMCP Client plugin]
+    UI[可选 DSH UI plugin\nMCP 工具面板 · 地图展示标签]
+
+    User --> Agent
+    Agent -->|Tool selection / tools/call| DSH
+    DSH <-->|JSON-RPC 2.0 · STDIO\ninitialize / tools/list / tools/call| Transport
+    UI -.展示 Tool catalog 与 GeoJSON/map result.-> DSH
+
+    subgraph Runtime[C++20 MCP Runtime: mcp_server]
+        direction TB
+        Transport[ITransport\nSTDIO · SSE+HTTP · Streamable HTTP]
+        Router[API Router / Server\nMethod 解析 · 参数校验\n响应封装 · 异常处理]
+        Registry[PluginRegistry\natomic shared_ptr 不可变快照]
+        Writer[Notification Queue + Writer\nmutex · condition_variable\n异步通知发送]
+        Watcher[PluginWatcher / PluginRuntime\ninotify · jthread · stop_token]
+        Staging[Staging 校验\n加载新 .so · ABI/API 校验\ninitialize 成功后原子切换]
+
+        Transport --> Router
+        Router --> Registry
+        Router --> Writer
+        Watcher --> Staging -->|atomic_store 新快照| Registry
+    end
+
+    subgraph Plugins[运行时动态插件：extern C + PluginAPI + dlopen/dlsym]
+        direction LR
+        Analysis[gis-analysis\nGeoJSON / 坐标转换 / Buffer\n点面关系\nGDAL · OGR · GEOS]
+        Services[map-services\n地理编码 · POI / 周边检索\n第三方 Provider 归一化\n缓存 / 降级]
+        Routing[osm-routing\n最近道路 · 路径规划 · 地图匹配\nDense ID + CSR\nDijkstra / A* / 双向搜索]
+    end
+
+    Registry --> Analysis
+    Registry --> Services
+    Registry --> Routing
+    Analysis -->|MCP Tool Result| Router
+    Services -->|MCP Tool Result| Router
+    Routing -->|MCP Tool Result| Router
+
+    subgraph Dependencies[外部依赖与可选数据]
+        direction LR
+        GDAL[GDAL / GEOS / PROJ]
+        Provider[高德等 Map Provider\nAPI Key 由环境变量注入]
+        OSM[OSM .pbf → .route\n本地路网与空间索引]
+        Redis[Redis\n热点查询缓存]
+    end
+
+    Analysis --> GDAL
+    Services --> Provider
+    Services -.可选.-> Redis
+    Routing --> OSM
 ```
+
+### 一次 Tool 调用的主链路
+
+```mermaid
+sequenceDiagram
+    participant A as Agent / DSH MCP Client
+    participant T as ITransport
+    participant S as Server / API Router
+    participant R as PluginRegistry Snapshot
+    participant P as GIS Plugin
+    participant X as Provider / GDAL / OSM
+
+    A->>T: tools/call {name, arguments, id}
+    T->>S: 读取 JSON-RPC 请求
+    S->>R: 按 Tool name 查找插件快照
+    R-->>S: shared_ptr 插件快照（调用期间保持存活）
+    S->>P: HandleRequest(name, arguments)
+    P->>X: 本地空间计算 / 外部 Provider / 路网搜索
+    X-->>P: 领域结果
+    P-->>S: 标准化 Tool Result
+    S-->>T: JSON-RPC response（复用请求 id）
+    T-->>A: Tool result / GeoJSON / map URL
+```
+
+### 热更新与并发安全
+
+```mermaid
+flowchart LR
+    Change[插件 .so 文件变化] --> Watch[inotify Watcher]
+    Watch --> Stage[Staging Loader\ndlopen · dlsym · ABI/API 校验 · initialize]
+    Stage -->|失败| Keep[保留旧 Registry\n记录错误，不影响在线请求]
+    Stage -->|成功| Swap[atomic_store\n切换 PluginRegistry 快照]
+    Swap --> New[后续请求使用新插件]
+    Old[正在执行的旧请求] --> Hold[持有旧 shared_ptr 快照]
+    Hold --> Reclaim[请求结束后旧插件自然回收]
+```
+
+面试时可以按这条主线讲：**Agent 只看到标准 MCP Tool Schema；C++ Runtime
+负责协议、路由与生命周期；插件负责领域能力；Registry 快照将“热更新”与“在线
+请求”隔离；GDAL/GEOS 与 CSR 路网把适合原生计算的 GIS 工作留在进程内完成。**
 
 `integrations/deepseek-harness/` additionally provides an optional DSH renderer: an MCP Tool panel and a map tab for GeoJSON / externalized map results.
 
