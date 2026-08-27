@@ -52,12 +52,13 @@ endif()
 
 # 安装规则
 install(TARGETS mcp_client
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib COMPONENT Development
+    LIBRARY DESTINATION lib COMPONENT Development
+    RUNTIME DESTINATION bin COMPONENT Development
 )
 
 install(DIRECTORY include/agent_rpc/mcp/
     DESTINATION include/agent_rpc/mcp
+    COMPONENT Development
     FILES_MATCHING PATTERN "*.h"
 )

@@ -17,11 +17,12 @@ target_compile_options(mcp_common PRIVATE -Wall -Wextra)
 
 # 安装规则
 install(TARGETS mcp_common
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib COMPONENT Development
+    LIBRARY DESTINATION lib COMPONENT Development
 )
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/agent_rpc
     DESTINATION include
+    COMPONENT Development
     FILES_MATCHING PATTERN "*.h"
 )

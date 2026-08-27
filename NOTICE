@@ -1,0 +1,21 @@
+# Third-party notices
+
+This repository contains and depends on third-party components. Their original
+copyright notices and license terms remain applicable.
+
+## MCP Server source lineage
+
+Parts of `mcp_server/`, including files carrying the copyright notice of
+Giuseppe Mastrangelo (2025), are distributed under the MIT License. Their file
+headers are intentionally retained.
+
+## Bundled libraries
+
+- `mcp_server/include/httplib.h` — cpp-httplib; see its upstream license text.
+- `mcp_server/include/json.hpp` — nlohmann/json; see its upstream license text.
+- `mcp_server/libs_tier_01/aixlog-1.5.0/` — AixLog; see its bundled license.
+
+System dependencies such as GDAL, GEOS, PROJ, libcurl, BZip2, Expat, Zlib and
+OpenSSL are not relicensed by this repository. Users distributing a binary
+release must comply with the license terms of the exact dependency versions
+they ship.

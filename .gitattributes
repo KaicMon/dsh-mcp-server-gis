@@ -1,0 +1,15 @@
+# GitHub source archives are source-only. Native runtime artifacts are
+# produced by the Release workflow and distributed as versioned assets.
+/build/** export-ignore
+/build_dev/** export-ignore
+/build-local/** export-ignore
+/logs/** export-ignore
+/plugin-staging/** export-ignore
+/node_modules/** export-ignore
+
+# Machine-local inputs must never be republished through a source archive.
+/.env export-ignore
+/.env.* export-ignore
+/routing/data/raw/** export-ignore
+/routing/data/generated/** export-ignore
+/routing/benchmark/results/** export-ignore

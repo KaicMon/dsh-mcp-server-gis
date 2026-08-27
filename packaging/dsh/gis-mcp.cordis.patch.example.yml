@@ -1,0 +1,31 @@
+# First install `@kaicmon/dsh-mcp-server-gis`, then add this block to the
+# target profile's cordis.patch.yml. `__MCP_PREFIX__` is the prefix used by
+# packaging/install-local.sh (normally ~/.local).
+- insert:
+    - id: gis-dsh-ui
+      name: '@kaicmon/dsh-mcp-server-gis'
+    - id: mcp-gis-lbs
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: gis
+        transport: stdio
+        command: '__MCP_PREFIX__/bin/mcp_server'
+        args:
+          - --plugins
+          - '__MCP_PREFIX__/lib/mcp-server-gis/plugins'
+          - --logs
+          - './logs/mcp-server-gis'
+          - --plugin-staging
+          - './plugin-staging/mcp-server-gis'
+          - --plugin-hot-reload
+          - --tool-profile
+          - gis-agent
+          - --tool-profiles-file
+          - '__MCP_PREFIX__/share/mcp-server-gis/config/tool-profiles.json'
+        env:
+          # Keep credentials in the caller environment; never commit values.
+          AMAP_API_KEY: !!js process.env.AMAP_API_KEY || ''
+          MCP_ROUTING_NETWORK: !!js process.env.MCP_ROUTING_NETWORK || ''
+          GIS_DATASET_ROOT: !!js process.env.GIS_DATASET_ROOT || ''
+        toolCallTimeoutMs: 60000
+        failOnStartupError: true
