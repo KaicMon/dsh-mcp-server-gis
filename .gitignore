@@ -3,6 +3,9 @@
 /build-local/
 node_modules
 
+# Personal learning records stay local and are not part of the public project.
+/docs/learn/
+
 
 # OSM source extracts and generated routing artifacts are reproducible but large.
 /routing/data/raw/*
